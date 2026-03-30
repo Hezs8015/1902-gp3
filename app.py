@@ -161,6 +161,12 @@ uploaded_file = st.sidebar.file_uploader("上传CSV文件", type=['csv'])
 
 use_sample = st.sidebar.checkbox("使用示例数据", value=False)
 
+st.sidebar.subheader("🧠 模型选择")
+use_bilstm = st.sidebar.checkbox("双向LSTM模型", value=True)
+use_transformer = st.sidebar.checkbox("Transformer模型", value=True)
+
+if not use_bilstm and not use_transformer:
+    st.sidebar.error("请至少选择一个模型")
 st.sidebar.subheader("🔧 模型参数")
 seq_length = st.sidebar.slider("序列长度", min_value=10, max_value=120, value=60, step=10)
 if st.sidebar.checkbox("ℹ️ 序列长度是什么？"):
@@ -418,38 +424,52 @@ with main_container:
             # 训练模型
             if st.button("🚀 开始训练模型", use_container_width=True):
                 try:
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    
-                    status_text.text("训练 BiLSTM 模型...")
-                    bilstm_model = BiLSTMModel(
-                        input_size=input_size,
-                        hidden_size=bilstm_hidden,
-                        num_layers=bilstm_layers,
-                        output_size=1
-                    ).to(device)
-                    
-                    bilstm_history = predictor.train_model(
-                        'BiLSTM', bilstm_model, X_train, y_train, X_test, y_test,
-                        epochs=epochs, batch_size=batch_size, lr=learning_rate
-                    )
-                    progress_bar.progress(50)
-                    
-                    status_text.text("训练 Transformer 模型...")
-                    transformer_model = TransformerModel(
-                        input_size=input_size,
-                        d_model=trans_d_model,
-                        nhead=trans_heads,
-                        num_layers=trans_layers,
-                        output_size=1
-                    ).to(device)
-                    
-                    trans_history = predictor.train_model(
-                        'Transformer', transformer_model, X_train, y_train, X_test, y_test,
-                        epochs=epochs, batch_size=batch_size, lr=learning_rate
-                    )
-                    progress_bar.progress(100)
-                    status_text.text("训练完成!")
+                    if not use_bilstm and not use_transformer:
+                        st.error("请至少选择一个模型")
+                    else:
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        trained_models = []
+                        total_steps = sum([use_bilstm, use_transformer])
+                        current_step = 0
+                        
+                        if use_bilstm:
+                            status_text.text("训练 BiLSTM 模型...")
+                            bilstm_model = BiLSTMModel(
+                                input_size=input_size,
+                                hidden_size=bilstm_hidden,
+                                num_layers=bilstm_layers,
+                                output_size=1
+                            ).to(device)
+                            
+                            bilstm_history = predictor.train_model(
+                                'BiLSTM', bilstm_model, X_train, y_train, X_test, y_test,
+                                epochs=epochs, batch_size=batch_size, lr=learning_rate
+                            )
+                            trained_models.append('BiLSTM')
+                            current_step += 1
+                            progress_bar.progress(int(current_step / total_steps * 100))
+                        
+                        if use_transformer:
+                            status_text.text("训练 Transformer 模型...")
+                            transformer_model = TransformerModel(
+                                input_size=input_size,
+                                d_model=trans_d_model,
+                                nhead=trans_heads,
+                                num_layers=trans_layers,
+                                output_size=1
+                            ).to(device)
+                            
+                            trans_history = predictor.train_model(
+                                'Transformer', transformer_model, X_train, y_train, X_test, y_test,
+                                epochs=epochs, batch_size=batch_size, lr=learning_rate
+                            )
+                            trained_models.append('Transformer')
+                            current_step += 1
+                            progress_bar.progress(int(current_step / total_steps * 100))
+                        
+                        status_text.text("训练完成!")
                 except Exception as e:
                     st.error(f"❌ 训练过程中出错: {str(e)}")
                     import traceback
@@ -457,63 +477,67 @@ with main_container:
                 
                 st.header("📊 模型性能对比")
                 
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.subheader("🧠 BiLSTM 评估结果")
-                    bilstm_metrics, bilstm_preds, actuals = predictor.evaluate_model('BiLSTM', X_test, y_test)
+                if trained_models:
+                    # 评估模型
+                    model_metrics = {}
+                    model_preds = {}
+                    actuals = None
                     
-                    for metric, value in bilstm_metrics.items():
-                        display_name = {
-                            'MSE': '均方误差 (MSE)',
-                            'RMSE': '均方根误差 (RMSE)',
-                            'MAE': '平均绝对误差 (MAE)',
-                            'R²': 'R² 评分',
-                            'Direction_Accuracy': '方向准确率'
-                        }.get(metric, metric)
-                        st.metric(display_name, f"{value:.4f}")
+                    if use_bilstm:
+                        bilstm_metrics, bilstm_preds, actuals = predictor.evaluate_model('BiLSTM', X_test, y_test)
+                        model_metrics['BiLSTM'] = bilstm_metrics
+                        model_preds['BiLSTM'] = bilstm_preds
                     
-                with col2:
-                    st.subheader("🤖 Transformer 评估结果")
-                    trans_metrics, trans_preds, _ = predictor.evaluate_model('Transformer', X_test, y_test)
+                    if use_transformer:
+                        trans_metrics, trans_preds, _ = predictor.evaluate_model('Transformer', X_test, y_test)
+                        model_metrics['Transformer'] = trans_metrics
+                        model_preds['Transformer'] = trans_preds
                     
-                    for metric, value in trans_metrics.items():
-                        display_name = {
-                            'MSE': '均方误差 (MSE)',
-                            'RMSE': '均方根误差 (RMSE)',
-                            'MAE': '平均绝对误差 (MAE)',
-                            'R²': 'R² 评分',
-                            'Direction_Accuracy': '方向准确率'
-                        }.get(metric, metric)
-                        st.metric(display_name, f"{value:.4f}")
-                
-                # 绘制预测对比图
-                st.subheader("📈 预测效果对比")
-                fig = go.Figure()
-                
-                # 实际值
-                fig.add_trace(go.Scatter(
-                    x=df['Date'].iloc[-len(actuals):],
-                    y=actuals,
-                    name='实际值',
-                    line=dict(color='white', width=2)
-                ))
-                
-                # BiLSTM预测值
-                fig.add_trace(go.Scatter(
-                    x=df['Date'].iloc[-len(bilstm_preds):],
-                    y=bilstm_preds,
-                    name='BiLSTM 预测',
-                    line=dict(color='green', width=2, dash='dash')
-                ))
-                
-                # Transformer预测值
-                fig.add_trace(go.Scatter(
-                    x=df['Date'].iloc[-len(trans_preds):],
-                    y=trans_preds,
-                    name='Transformer 预测',
-                    line=dict(color='blue', width=2, dash='dot')
-                ))
+                    # 显示评估结果
+                    cols = st.columns(len(trained_models))
+                    for i, model_name in enumerate(trained_models):
+                        with cols[i]:
+                            st.subheader(f"{'🧠' if model_name == 'BiLSTM' else '🤖'} {model_name} 评估结果")
+                            metrics = model_metrics[model_name]
+                            for metric, value in metrics.items():
+                                display_name = {
+                                    'MSE': '均方误差 (MSE)',
+                                    'RMSE': '均方根误差 (RMSE)',
+                                    'MAE': '平均绝对误差 (MAE)',
+                                    'R²': 'R² 评分',
+                                    'Direction_Accuracy': '方向准确率'
+                                }.get(metric, metric)
+                                st.metric(display_name, f"{value:.4f}")
+                    
+                    # 绘制预测对比图
+                    st.subheader("📈 预测效果对比")
+                    fig = go.Figure()
+                    
+                    # 实际值
+                    if actuals is not None:
+                        fig.add_trace(go.Scatter(
+                            x=df['Date'].iloc[-len(actuals):],
+                            y=actuals,
+                            name='实际值',
+                            line=dict(color='white', width=2)
+                        ))
+                        
+                        # 模型预测值
+                        if use_bilstm:
+                            fig.add_trace(go.Scatter(
+                                x=df['Date'].iloc[-len(bilstm_preds):],
+                                y=bilstm_preds,
+                                name='BiLSTM 预测',
+                                line=dict(color='green', width=2, dash='dash')
+                            ))
+                        
+                        if use_transformer:
+                            fig.add_trace(go.Scatter(
+                                x=df['Date'].iloc[-len(trans_preds):],
+                                y=trans_preds,
+                                name='Transformer 预测',
+                                line=dict(color='blue', width=2, dash='dot')
+                            ))
                 
                 fig.update_layout(
                     xaxis_title='日期',
@@ -525,20 +549,36 @@ with main_container:
                 st.plotly_chart(fig, use_container_width=True)
                 
                 # 模型推荐
-                st.header("🏆 模型推荐")
-                
-                # 比较方向准确率
-                bilstm_dir_acc = bilstm_metrics['Direction_Accuracy']
-                trans_dir_acc = trans_metrics['Direction_Accuracy']
-                
-                if bilstm_dir_acc > trans_dir_acc:
-                    st.success(f"🧠 **BiLSTM 模型**表现更好！")
-                    st.info(f"方向准确率: {bilstm_dir_acc:.2f} vs {trans_dir_acc:.2f}")
-                elif trans_dir_acc > bilstm_dir_acc:
-                    st.success(f"🤖 **Transformer 模型**表现更好！")
-                    st.info(f"方向准确率: {trans_dir_acc:.2f} vs {bilstm_dir_acc:.2f}")
-                else:
-                    st.info(f"两个模型表现相当！方向准确率: {bilstm_dir_acc:.2f}")
+                if trained_models and len(trained_models) > 1:
+                    st.header("🏆 模型推荐")
+                    
+                    # 比较方向准确率
+                    best_model = None
+                    best_acc = 0
+                    
+                    if use_bilstm:
+                        bilstm_dir_acc = bilstm_metrics['Direction_Accuracy']
+                        if bilstm_dir_acc > best_acc:
+                            best_acc = bilstm_dir_acc
+                            best_model = 'BiLSTM'
+                    
+                    if use_transformer:
+                        trans_dir_acc = trans_metrics['Direction_Accuracy']
+                        if trans_dir_acc > best_acc:
+                            best_acc = trans_dir_acc
+                            best_model = 'Transformer'
+                    
+                    if best_model:
+                        if best_model == 'BiLSTM':
+                            st.success(f"🧠 **BiLSTM 模型**表现更好！")
+                            if use_transformer:
+                                st.info(f"方向准确率: {bilstm_dir_acc:.2f} vs {trans_dir_acc:.2f}")
+                        else:
+                            st.success(f"🤖 **Transformer 模型**表现更好！")
+                            if use_bilstm:
+                                st.info(f"方向准确率: {trans_dir_acc:.2f} vs {bilstm_dir_acc:.2f}")
+                    else:
+                        st.info("两个模型表现相当！")
                 
                 # 预测未来
                 st.header("🔮 未来预测")
@@ -550,8 +590,14 @@ with main_container:
                     scaled_last = predictor.scaler.transform(last_data)
                     
                     # 预测未来
-                    bilstm_future = predictor.predict_future('BiLSTM', scaled_last, days=days_to_predict)
-                    trans_future = predictor.predict_future('Transformer', scaled_last, days=days_to_predict)
+                    future_predictions = {}
+                    if use_bilstm:
+                        bilstm_future = predictor.predict_future('BiLSTM', scaled_last, days=days_to_predict)
+                        future_predictions['BiLSTM'] = bilstm_future
+                    
+                    if use_transformer:
+                        trans_future = predictor.predict_future('Transformer', scaled_last, days=days_to_predict)
+                        future_predictions['Transformer'] = trans_future
                     
                     # 生成未来日期
                     last_date = df['Date'].iloc[-1]
@@ -568,21 +614,22 @@ with main_container:
                         line=dict(color='white', width=2)
                     ))
                     
-                    # BiLSTM预测
-                    fig.add_trace(go.Scatter(
-                        x=future_dates,
-                        y=bilstm_future,
-                        name='BiLSTM 预测',
-                        line=dict(color='green', width=2, dash='dash')
-                    ))
+                    # 模型预测
+                    if use_bilstm:
+                        fig.add_trace(go.Scatter(
+                            x=future_dates,
+                            y=bilstm_future,
+                            name='BiLSTM 预测',
+                            line=dict(color='green', width=2, dash='dash')
+                        ))
                     
-                    # Transformer预测
-                    fig.add_trace(go.Scatter(
-                        x=future_dates,
-                        y=trans_future,
-                        name='Transformer 预测',
-                        line=dict(color='blue', width=2, dash='dot')
-                    ))
+                    if use_transformer:
+                        fig.add_trace(go.Scatter(
+                            x=future_dates,
+                            y=trans_future,
+                            name='Transformer 预测',
+                            line=dict(color='blue', width=2, dash='dot')
+                        ))
                     
                     fig.update_layout(
                         xaxis_title='日期',
@@ -595,11 +642,12 @@ with main_container:
                     
                     # 显示预测值
                     st.subheader("📋 预测结果")
-                    pred_df = pd.DataFrame({
-                        '日期': future_dates,
-                        'BiLSTM 预测': bilstm_future,
-                        'Transformer 预测': trans_future
-                    })
+                    pred_data = {'日期': future_dates}
+                    if use_bilstm:
+                        pred_data['BiLSTM 预测'] = bilstm_future
+                    if use_transformer:
+                        pred_data['Transformer 预测'] = trans_future
+                    pred_df = pd.DataFrame(pred_data)
                     st.dataframe(pred_df)
                     
                     # 保存模型
@@ -607,9 +655,17 @@ with main_container:
                     model_name = st.text_input("模型名称", f"stock_model_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}")
                     if st.button("💾 保存模型", use_container_width=True):
                         try:
-                            predictor.save_model('BiLSTM', save_dir='saved_models')
-                            predictor.save_model('Transformer', save_dir='saved_models')
-                            st.success("✅ 模型保存成功！")
+                            saved_models = []
+                            if use_bilstm:
+                                predictor.save_model('BiLSTM', save_dir='saved_models')
+                                saved_models.append('BiLSTM')
+                            if use_transformer:
+                                predictor.save_model('Transformer', save_dir='saved_models')
+                                saved_models.append('Transformer')
+                            if saved_models:
+                                st.success(f"✅ 模型保存成功！保存的模型: {', '.join(saved_models)}")
+                            else:
+                                st.error("❌ 请先选择要保存的模型")
                         except Exception as e:
                             st.error(f"❌ 保存失败: {str(e)}")
         except Exception as e:
