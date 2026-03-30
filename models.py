@@ -9,6 +9,8 @@ import math
 import os
 import json
 from datetime import datetime
+from statsmodels.tsa.arima.model import ARIMA
+from arch import arch_model
 
 
 class BiLSTMModelV1(nn.Module):
@@ -392,13 +394,13 @@ class StockPredictor:
     def train_model(self, model_name, model, X_train, y_train, X_val, y_val, epochs=50, batch_size=32, lr=0.001, early_stopping_patience=10, verbose=True, progress_callback=None):
         """训练模型（优化版）"""
         train_dataset = TensorDataset(X_train, y_train)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
         
         criterion = nn.MSELoss()
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
         
         # 使用更高效的学习率调度器
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=lr * 0.01)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3)
         
         # 早停设置
         best_val_loss = float('inf')
@@ -437,7 +439,7 @@ class StockPredictor:
             history['lr'].append(current_lr)
             
             # 更新学习率
-            scheduler.step()
+            scheduler.step(val_loss)
             
             # 回调函数（用于Streamlit进度更新）
             if progress_callback is not None:
@@ -451,7 +453,7 @@ class StockPredictor:
                 best_model_state = model.state_dict().copy()
             else:
                 patience_counter += 1
-                if verbose and patience_counter % 3 == 0:
+                if verbose and patience_counter % 2 == 0:
                     print(f"  {model_name}: 验证损失未改善 {patience_counter} 轮")
                 
                 if patience_counter >= early_stopping_patience:
@@ -463,7 +465,7 @@ class StockPredictor:
                     break
             
             # 显示进度
-            if verbose and (epoch + 1) % 5 == 0:
+            if verbose and (epoch + 1) % 3 == 0:
                 print(f"  {model_name} Epoch [{epoch+1}/{epochs}] - Train Loss: {avg_train_loss:.6f}, Val Loss: {val_loss:.6f}, LR: {current_lr:.6f}")
             
             model.train()
@@ -584,6 +586,101 @@ class StockPredictor:
             json.dump(self.histories[model_name], f)
         
         print(f"模型 '{model_name}' 已保存到 {save_dir}")
+    
+    def train_arma_model(self, model_name, X_train, y_train, X_test, y_test, p=1, d=0, q=1):
+        """训练ARMA模型（优化版）"""
+        # 将数据转换为一维数组
+        train_data = y_train.cpu().numpy()
+        test_data = y_test.cpu().numpy()
+        
+        # 训练ARMA模型（使用更快的参数）
+        model = ARIMA(train_data, order=(p, d, q))
+        model_fit = model.fit()
+        
+        # 评估模型
+        predictions = model_fit.forecast(steps=len(test_data))
+        
+        # 计算指标
+        mse = mean_squared_error(test_data, predictions)
+        rmse = np.sqrt(mse)
+        mae = mean_absolute_error(test_data, predictions)
+        r2 = r2_score(test_data, predictions)
+        
+        # 计算方向准确率
+        pred_direction = np.diff(predictions) > 0
+        actual_direction = np.diff(test_data) > 0
+        direction_accuracy = np.mean(pred_direction == actual_direction)
+        
+        metrics = {
+            'MSE': mse,
+            'RMSE': rmse,
+            'MAE': mae,
+            'R²': r2,
+            'Direction_Accuracy': direction_accuracy
+        }
+        
+        # 保存模型
+        self.models[model_name] = model_fit
+        self.histories[model_name] = {'metrics': metrics}
+        
+        return metrics, predictions, test_data
+    
+    def train_garch_model(self, model_name, X_train, y_train, X_test, y_test, p=1, q=1):
+        """训练GARCH模型（优化版）"""
+        # 将数据转换为一维数组
+        train_data = y_train.cpu().numpy()
+        test_data = y_test.cpu().numpy()
+        
+        # 训练GARCH模型（使用更快的参数）
+        model = arch_model(train_data, vol='GARCH', p=p, q=q, dist='normal')
+        model_fit = model.fit(show_warning=False)
+        
+        # 评估模型
+        predictions = model_fit.forecast(horizon=len(test_data))
+        predictions = predictions.mean.values[-1]
+        
+        # 计算指标
+        mse = mean_squared_error(test_data, predictions)
+        rmse = np.sqrt(mse)
+        mae = mean_absolute_error(test_data, predictions)
+        r2 = r2_score(test_data, predictions)
+        
+        # 计算方向准确率
+        pred_direction = np.diff(predictions) > 0
+        actual_direction = np.diff(test_data) > 0
+        direction_accuracy = np.mean(pred_direction == actual_direction)
+        
+        metrics = {
+            'MSE': mse,
+            'RMSE': rmse,
+            'MAE': mae,
+            'R²': r2,
+            'Direction_Accuracy': direction_accuracy
+        }
+        
+        # 保存模型
+        self.models[model_name] = model_fit
+        self.histories[model_name] = {'metrics': metrics}
+        
+        return metrics, predictions, test_data
+    
+    def predict_future_arma(self, model_name, last_data, days=30):
+        """ARMA模型预测未来"""
+        if model_name not in self.models:
+            raise ValueError(f"模型 '{model_name}' 未找到")
+        
+        model = self.models[model_name]
+        predictions = model.forecast(steps=days)
+        return predictions
+    
+    def predict_future_garch(self, model_name, last_data, days=30):
+        """GARCH模型预测未来"""
+        if model_name not in self.models:
+            raise ValueError(f"模型 '{model_name}' 未找到")
+        
+        model = self.models[model_name]
+        predictions = model.forecast(horizon=days)
+        return predictions.mean.values[-1]
     
     def load_model(self, model_name, save_dir='saved_models'):
         """加载模型"""
