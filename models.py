@@ -597,10 +597,25 @@ class StockPredictor:
         model = ARIMA(train_data, order=(p, d, q))
         model_fit = model.fit()
         
-        # 评估模型
-        predictions = model_fit.forecast(steps=len(test_data))
+        # 评估模型 - 使用滚动预测
+        predictions = []
+        current_data = train_data.copy()
         
-        # 计算指标
+        for i in range(len(test_data)):
+            # 训练新模型或更新现有模型
+            model = ARIMA(current_data, order=(p, d, q))
+            model_fit = model.fit()
+            
+            # 预测下一个值
+            pred = model_fit.forecast(steps=1)
+            predictions.append(pred[0])
+            
+            # 将实际值添加到当前数据中
+            current_data = np.append(current_data, test_data[i])
+        
+        predictions = np.array(predictions)
+        
+        # 计算指标（在标准化空间中计算）
         mse = mean_squared_error(test_data, predictions)
         rmse = np.sqrt(mse)
         mae = mean_absolute_error(test_data, predictions)
@@ -619,7 +634,22 @@ class StockPredictor:
             'Direction_Accuracy': direction_accuracy
         }
         
-        # 保存模型
+        # 反标准化
+        n_features = X_test.shape[2]  # 特征数量
+        pred_full = np.zeros((len(predictions), n_features))
+        pred_full[:, 0] = predictions  # 假设第一列是目标变量
+        
+        actual_full = np.zeros((len(test_data), n_features))
+        actual_full[:, 0] = test_data
+        
+        # 反标准化
+        pred_original = self.scaler.inverse_transform(pred_full)
+        actual_original = self.scaler.inverse_transform(actual_full)
+        
+        predictions = pred_original[:, 0]
+        test_data = actual_original[:, 0]
+        
+        # 保存最终模型
         self.models[model_name] = model_fit
         self.histories[model_name] = {'metrics': metrics}
         
@@ -631,15 +661,25 @@ class StockPredictor:
         train_data = y_train.cpu().numpy()
         test_data = y_test.cpu().numpy()
         
-        # 训练GARCH模型（使用更快的参数）
-        model = arch_model(train_data, vol='GARCH', p=p, q=q, dist='normal')
-        model_fit = model.fit(show_warning=False)
+        # 评估模型 - 使用滚动预测
+        predictions = []
+        current_data = train_data.copy()
         
-        # 评估模型
-        predictions = model_fit.forecast(horizon=len(test_data))
-        predictions = predictions.mean.values[-1]
+        for i in range(len(test_data)):
+            # 训练新模型
+            model = arch_model(current_data, vol='GARCH', p=p, q=q, dist='normal')
+            model_fit = model.fit(show_warning=False)
+            
+            # 预测下一个值
+            pred = model_fit.forecast(horizon=1)
+            predictions.append(pred.mean.values[-1][0])
+            
+            # 将实际值添加到当前数据中
+            current_data = np.append(current_data, test_data[i])
         
-        # 计算指标
+        predictions = np.array(predictions)
+        
+        # 计算指标（在标准化空间中计算）
         mse = mean_squared_error(test_data, predictions)
         rmse = np.sqrt(mse)
         mae = mean_absolute_error(test_data, predictions)
@@ -658,7 +698,22 @@ class StockPredictor:
             'Direction_Accuracy': direction_accuracy
         }
         
-        # 保存模型
+        # 反标准化
+        n_features = X_test.shape[2]  # 特征数量
+        pred_full = np.zeros((len(predictions), n_features))
+        pred_full[:, 0] = predictions  # 假设第一列是目标变量
+        
+        actual_full = np.zeros((len(test_data), n_features))
+        actual_full[:, 0] = test_data
+        
+        # 反标准化
+        pred_original = self.scaler.inverse_transform(pred_full)
+        actual_original = self.scaler.inverse_transform(actual_full)
+        
+        predictions = pred_original[:, 0]
+        test_data = actual_original[:, 0]
+        
+        # 保存最终模型
         self.models[model_name] = model_fit
         self.histories[model_name] = {'metrics': metrics}
         
