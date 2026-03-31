@@ -768,6 +768,28 @@ with main_container:
                             trans_future = predictor.predict_future('Transformer', last_sequence, days=days_to_predict)
                             future_predictions['Transformer'] = trans_future
                         
+                        if use_arma and 'ARMA' in all_results:
+                            # 准备ARMA模型的输入数据
+                            last_data = y_test.cpu().numpy()[-1]
+                            arma_future = predictor.predict_future_arma('ARMA', last_data, days=days_to_predict)
+                            # 反标准化
+                            n_features = X_test.shape[2]
+                            pred_full = np.zeros((len(arma_future), n_features))
+                            pred_full[:, 0] = arma_future
+                            arma_future = predictor.scaler.inverse_transform(pred_full)[:, 0]
+                            future_predictions['ARMA'] = arma_future
+                        
+                        if use_garch and 'GARCH' in all_results:
+                            # 准备GARCH模型的输入数据
+                            last_data = y_test.cpu().numpy()[-1]
+                            garch_future = predictor.predict_future_garch('GARCH', last_data, days=days_to_predict)
+                            # 反标准化
+                            n_features = X_test.shape[2]
+                            pred_full = np.zeros((len(garch_future), n_features))
+                            pred_full[:, 0] = garch_future
+                            garch_future = predictor.scaler.inverse_transform(pred_full)[:, 0]
+                            future_predictions['GARCH'] = garch_future
+                        
                         # 生成未来日期
                         last_date = df['Date'].iloc[-1]
                         future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=days_to_predict, freq='D')
