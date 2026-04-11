@@ -36,11 +36,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-header">📚 模型介绍与参考文献</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">ARMA · GARCH · BiLSTM · Transformer</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">ARMA · BiLSTM · Transformer</div>', unsafe_allow_html=True)
 
 st.markdown("""
 本项目使用 **BiLSTM** 和 **Transformer** 两种深度学习模型进行股票价格预测，
-并以传统统计模型 **ARMA** 和 **GARCH** 作为基准对比。以下介绍各模型的原理及其在股票预测任务中的优劣势。
+并以传统统计模型 **ARMA** 作为基准对比。以下介绍各模型的原理及其在股票预测任务中的优劣势。
 """)
 
 # ─────────────────────────────────────────────
@@ -79,46 +79,10 @@ st.markdown("""
 """)
 
 # ─────────────────────────────────────────────
-# 2. GARCH
+# 2. BiLSTM
 # ─────────────────────────────────────────────
 st.markdown("---")
-st.header("📉 2. GARCH (Generalized Autoregressive Conditional Heteroskedasticity)")
-
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.markdown("""
-    **GARCH** 由 Bollerslev（1986）在 Engle（1982）ARCH 模型基础上提出，专门用于建模时间序列的**波动率（Volatility）**。
-
-    核心思想：金融资产的波动不是恒定的，而是具有**波动聚集性（Volatility Clustering）**——
-    大幅波动后往往紧跟大幅波动，平静期后紧跟平静期。
-
-    GARCH(p, q) 将当前条件方差建模为：
-    - 过去 q 期残差平方的加权和（ARCH 项）
-    - 过去 p 期条件方差的加权和（GARCH 项）
-    """)
-
-with col2:
-    st.info("""
-    **适用场景**
-
-    ✅ 金融资产波动率估计  
-    ✅ 风险管理与 VaR 计算  
-    ✅ 期权定价辅助  
-    """)
-
-st.markdown("""
-**在股票预测中的局限性**
-
-GARCH 擅长描述**波动率**，而非价格方向或绝对价格水平。它无法捕捉非线性的价格趋势，
-在预测股票涨跌方向时能力有限，通常与其他模型配合使用。
-""")
-
-# ─────────────────────────────────────────────
-# 3. BiLSTM
-# ─────────────────────────────────────────────
-st.markdown("---")
-st.header("🧠 3. BiLSTM (Bidirectional Long Short-Term Memory)")
+st.header("🧠 2. BiLSTM (Bidirectional Long Short-Term Memory)")
 
 col1, col2 = st.columns([2, 1])
 
@@ -158,10 +122,10 @@ with col2:
     """)
 
 # ─────────────────────────────────────────────
-# 4. Transformer
+# 3. Transformer
 # ─────────────────────────────────────────────
 st.markdown("---")
-st.header("🤖 4. Transformer (Self-Attention Model)")
+st.header("🤖 3. Transformer (Self-Attention Model)")
 
 col1, col2 = st.columns([2, 1])
 
@@ -200,20 +164,20 @@ st.markdown("---")
 st.header("📊 模型对比总结")
 
 st.markdown("""
-| 特性 | ARMA | GARCH | BiLSTM | Transformer |
-|------|------|-------|--------|-------------|
-| 模型类型 | 统计 | 统计 | 深度学习 | 深度学习 |
-| 主要用途 | 价格预测 | 波动率建模 | 价格预测 | 价格预测 |
-| 非线性建模 | ❌ | ❌ | ✅ | ✅ |
-| 长期依赖 | 有限 | 有限 | 良好 | 优秀 |
-| 并行计算 | ✅ | ✅ | ❌ | ✅ |
-| 数据需求 | 少 | 少 | 中 | 多 |
-| 可解释性 | 高 | 高 | 低 | 中（注意力）|
-| 训练复杂度 | 低 | 低 | 中 | 高 |
+| 特性 | ARMA | BiLSTM | Transformer |
+|------|------|--------|-------------|
+| 模型类型 | 统计 | 深度学习 | 深度学习 |
+| 主要用途 | 价格预测 | 价格预测 | 价格预测 |
+| 非线性建模 | ❌ | ✅ | ✅ |
+| 长期依赖 | 有限 | 良好 | 优秀 |
+| 并行计算 | ✅ | ❌ | ✅ |
+| 数据需求 | 少 | 中 | 多 |
+| 可解释性 | 高 | 低 | 中（注意力）|
+| 训练复杂度 | 低 | 中 | 高 |
 """)
 
 st.markdown("""
-**总结**：ARMA 和 GARCH 作为传统统计基准，优点是解释性强、数据需求低，
+**总结**：ARMA 作为传统统计基准，优点是解释性强、数据需求低，
 但对股票价格的非线性特征建模能力有限。BiLSTM 和 Transformer 作为深度学习模型，
 能够自动学习复杂的非线性时序规律，在足够数据的支持下通常表现更优，
 但代价是更高的计算成本和更低的可解释性。
@@ -228,9 +192,7 @@ st.header("📖 References")
 st.markdown("""
 [1] Box, G. E. P., & Jenkins, G. M. (1970). *Time series analysis: Forecasting and control*. Holden-Day.
 
-[2] Bollerslev, T. (1986). Generalized autoregressive conditional heteroskedasticity. *Journal of Econometrics, 31*(3), 307–327. https://doi.org/10.1016/0304-4076(86)90063-1
+[2] Schuster, M., & Paliwal, K. K. (1997). Bidirectional recurrent neural networks. *IEEE Transactions on Signal Processing, 45*, 2673–2681. https://doi.org/10.1109/78.650093
 
-[3] Schuster, M., & Paliwal, K. K. (1997). Bidirectional recurrent neural networks. *IEEE Transactions on Signal Processing, 45*, 2673–2681. https://doi.org/10.1109/78.650093
-
-[4] Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). Attention is all you need. *Advances in Neural Information Processing Systems, 30*. https://arxiv.org/abs/1706.03762
+[3] Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., & Polosukhin, I. (2017). Attention is all you need. *Advances in Neural Information Processing Systems, 30*. https://arxiv.org/abs/1706.03762
 """)

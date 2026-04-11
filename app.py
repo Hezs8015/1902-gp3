@@ -9,7 +9,7 @@ from models import BiLSTMModel, TransformerModel, StockPredictor
 import io
 
 st.set_page_config(
-    page_title="股市预测模型对比 - BiLSTM vs Transformer vs ARMA vs GARCH",
+    page_title="股市预测模型对比 - BiLSTM vs Transformer vs ARMA",
     page_icon="📈",
     layout="wide"
 )
@@ -46,7 +46,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-header">📊 股市预测模型对比分析</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">BiLSTM vs Transformer vs ARMA vs GARCH 模型性能比较</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">BiLSTM vs Transformer vs ARMA 模型性能比较</div>', unsafe_allow_html=True)
 
 st.sidebar.header("📖 模型介绍")
 
@@ -156,64 +156,18 @@ if st.sidebar.button("🔍 查看模型原理", use_container_width=True):
     - 需要可解释性的场景
     
     ---
-    ### 📉 GARCH (广义自回归条件异方差模型)
+    ###  三大模型对比总结
     
-    **核心思想**：
-    - 专门建模**波动率**（方差）的时变特性
-    - 捕捉金融数据的"波动聚集"现象
-    
-    **工作原理**：
-    ```
-    波动率 = 长期方差 + ARCH项(近期平方残差) + GARCH项(前期方差)
-    
-    即：今天的波动率受昨天波动率和昨天残差的影响
-    ```
-    
-    **模型公式**：
-    ```
-    σ²(t) = ω + Σ(α_i * ε²(t-i)) + Σ(β_i * σ²(t-i))
-    
-    其中：
-    - σ²(t): 条件方差（波动率平方）
-    - ω: 长期平均方差
-    - α_i: ARCH系数（新信息的影响）
-    - β_i: GARCH系数（旧波动率的持续性）
-    ```
-    
-    **金融意义**：
-    - **波动聚集**：大波动后往往跟随大波动
-    - **杠杆效应**：坏消息比好消息对波动率影响更大
-    - **风险预测**：预测未来波动率，用于风险管理
-    
-    **优点**：
-    - ✅ 专门建模波动率，适合金融风险分析
-    - ✅ 能捕捉波动聚集现象
-    - ✅ 广泛应用于金融领域
-    
-    **缺点**：
-    - ❌ 只预测波动率，不直接预测价格
-    - ❌ 对非对称效应建模能力有限
-    - ❌ 需要大量数据估计参数
-    
-    **适用场景**：
-    - 波动率预测
-    - 风险价值(VaR)计算
-    - 期权定价
-    - 投资组合风险管理
-    
-    ---
-    ### 📊 四大模型对比总结
-    
-    | 特性 | BiLSTM | Transformer | ARMA | GARCH |
-    |------|--------|-------------|------|-------|
-    | 模型类型 | 深度学习 | 深度学习 | 统计模型 | 统计模型 |
-    | 计算方式 | 串行 | 并行 | 解析解/迭代 | 迭代优化 |
-    | 长期依赖 | 一般 | 优秀 | 有限 | 有限 |
-    | 非线性 | 强 | 强 | 无 | 无 |
-    | 训练速度 | 慢 | 快 | 极快 | 快 |
-    | 数据需求 | 较多 | 多 | 少 | 中等 |
-    | 可解释性 | 一般 | 好(注意力) | 强 | 强 |
-    | 主要用途 | 价格预测 | 价格预测 | 价格预测 | 波动率预测 |
+    | 特性 | BiLSTM | Transformer | ARMA |
+    |------|--------|-------------|------|
+    | 模型类型 | 深度学习 | 深度学习 | 统计模型 |
+    | 计算方式 | 串行 | 并行 | 解析解/迭代 |
+    | 长期依赖 | 一般 | 优秀 | 有限 |
+    | 非线性 | 强 | 强 | 无 |
+    | 训练速度 | 慢 | 快 | 极快 |
+    | 数据需求 | 较多 | 多 | 少 |
+    | 可解释性 | 一般 | 好(注意力) | 强 |
+    | 主要用途 | 价格预测 | 价格预测 | 价格预测 |
     
     ---
     """)
@@ -254,9 +208,8 @@ st.sidebar.subheader("🧠 模型选择")
 use_bilstm = st.sidebar.checkbox("双向LSTM模型", value=True)
 use_transformer = st.sidebar.checkbox("Transformer模型", value=True)
 use_arma = st.sidebar.checkbox("ARMA模型", value=True)
-use_garch = st.sidebar.checkbox("GARCH模型", value=True)
 
-if not use_bilstm and not use_transformer and not use_arma and not use_garch:
+if not use_bilstm and not use_transformer and not use_arma:
     st.sidebar.error("请至少选择一个模型")
 
 st.sidebar.subheader("🔧 模型参数")
@@ -399,35 +352,6 @@ if st.sidebar.checkbox("ℹ️ MA阶数(q)是什么？"):
     
     💡 建议：
     - 一般选择：q=1-2
-    """)
-
-st.sidebar.subheader("📉 GARCH参数")
-garch_p = st.sidebar.slider("ARCH阶数(p)", min_value=1, max_value=5, value=1)
-if st.sidebar.checkbox("ℹ️ ARCH阶数(p)是什么？"):
-    st.sidebar.info("""
-    **ARCH阶数(p)**：使用过去p个时间点的平方残差来建模波动率。
-    
-    📌 通俗解释：
-    - p=1：昨天的波动影响今天的波动
-    - p越大 → 考虑的历史波动信息越多
-    
-    💡 建议：
-    - 常用值：p=1
-    - 复杂波动：p=2
-    """)
-
-garch_q = st.sidebar.slider("GARCH阶数(q)", min_value=1, max_value=5, value=1)
-if st.sidebar.checkbox("ℹ️ GARCH阶数(q)是什么？"):
-    st.sidebar.info("""
-    **GARCH阶数(q)**：使用过去q个时间点的条件方差来建模波动率。
-    
-    📌 通俗解释：
-    - q=1：昨天的波动率持续影响今天
-    - q越大 → 波动率的持续性越长
-    
-    💡 建议：
-    - 常用值：q=1
-    - 强持续性：q=2
     """)
 
 st.sidebar.subheader("⚡ 训练参数")
@@ -595,7 +519,7 @@ with main_container:
                     
                     # 存储所有模型的结果
                     all_results = {}
-                    total_models = sum([use_bilstm, use_transformer, use_arma, use_garch])
+                    total_models = sum([use_bilstm, use_transformer, use_arma])
                     current_model = 0
                     
                     # BiLSTM模型
@@ -646,17 +570,7 @@ with main_container:
                         all_results['ARMA'] = (arma_metrics, arma_preds, actuals)
                         progress_bar.progress(int(100 * current_model / total_models))
                     
-                    # GARCH模型
-                    if use_garch:
-                        current_model += 1
-                        status_text.text(f"[{current_model}/{total_models}] 训练 GARCH 模型...")
-                        garch_metrics, garch_preds, actuals = predictor.train_garch_model(
-                            'GARCH', X_train, y_train, X_test, y_test,
-                            p=garch_p, q=garch_q
-                        )
-                        all_results['GARCH'] = (garch_metrics, garch_preds, actuals)
-                        progress_bar.progress(100)
-                    
+                    progress_bar.progress(100)
                     status_text.text("训练完成!")
                     
                     # 显示所有模型的结果
@@ -681,7 +595,7 @@ with main_container:
                     cols = st.columns(min(len(all_results), 2))
                     for idx, (model_name, (metrics, preds, actuals)) in enumerate(all_results.items()):
                         with cols[idx % 2]:
-                            icon = {'BiLSTM': '🧠', 'Transformer': '🤖', 'ARMA': '📈', 'GARCH': '📉'}.get(model_name, '📊')
+                            icon = {'BiLSTM': '🧠', 'Transformer': '🤖', 'ARMA': '📈'}.get(model_name, '📊')
                             st.subheader(f"{icon} {model_name} 评估结果")
                             
                             for metric, value in metrics.items():
@@ -709,7 +623,7 @@ with main_container:
                         ))
                         
                         # 各模型预测值
-                        colors = {'BiLSTM': 'green', 'Transformer': 'blue', 'ARMA': 'orange', 'GARCH': 'red'}
+                        colors = {'BiLSTM': 'green', 'Transformer': 'blue', 'ARMA': 'orange'}
                         for model_name, (metrics, preds, _) in all_results.items():
                             fig.add_trace(go.Scatter(
                                 x=df['Date'].iloc[-len(preds):],
@@ -739,7 +653,7 @@ with main_container:
                         best_model = max(direction_accuracies, key=direction_accuracies.get)
                         best_acc = direction_accuracies[best_model]
                         
-                        icon = {'BiLSTM': '🧠', 'Transformer': '🤖', 'ARMA': '📈', 'GARCH': '📉'}.get(best_model, '📊')
+                        icon = {'BiLSTM': '🧠', 'Transformer': '🤖', 'ARMA': '📈'}.get(best_model, '📊')
                         st.success(f"{icon} **{best_model} 模型**表现最好！")
                         st.info(f"方向准确率: {best_acc:.2%}")
                         
@@ -779,17 +693,6 @@ with main_container:
                             arma_future = predictor.scaler.inverse_transform(pred_full)[:, 0]
                             future_predictions['ARMA'] = arma_future
                         
-                        if use_garch and 'GARCH' in all_results:
-                            # 准备GARCH模型的输入数据
-                            last_data = y_test.cpu().numpy()[-1]
-                            garch_future = predictor.predict_future_garch('GARCH', last_data, days=days_to_predict)
-                            # 反标准化
-                            n_features = X_test.shape[2]
-                            pred_full = np.zeros((len(garch_future), n_features))
-                            pred_full[:, 0] = garch_future
-                            garch_future = predictor.scaler.inverse_transform(pred_full)[:, 0]
-                            future_predictions['GARCH'] = garch_future
-                        
                         # 生成未来日期
                         last_date = df['Date'].iloc[-1]
                         future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=days_to_predict, freq='D')
@@ -806,7 +709,7 @@ with main_container:
                         ))
                         
                         # 各模型预测
-                        colors = {'BiLSTM': 'green', 'Transformer': 'blue', 'ARMA': 'orange', 'GARCH': 'red'}
+                        colors = {'BiLSTM': 'green', 'Transformer': 'blue', 'ARMA': 'orange'}
                         for model_name, preds in future_predictions.items():
                             fig.add_trace(go.Scatter(
                                 x=future_dates,

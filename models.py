@@ -10,7 +10,6 @@ import os
 import json
 from datetime import datetime
 from statsmodels.tsa.arima.model import ARIMA
-from arch import arch_model
 
 
 class BiLSTMModelV1(nn.Module):
@@ -655,70 +654,6 @@ class StockPredictor:
         
         return metrics, predictions, test_data
     
-    def train_garch_model(self, model_name, X_train, y_train, X_test, y_test, p=1, q=1):
-        """训练GARCH模型（优化版）"""
-        # 将数据转换为一维数组
-        train_data = y_train.cpu().numpy()
-        test_data = y_test.cpu().numpy()
-        
-        # 评估模型 - 使用滚动预测
-        predictions = []
-        current_data = train_data.copy()
-        
-        for i in range(len(test_data)):
-            # 训练新模型
-            model = arch_model(current_data, vol='GARCH', p=p, q=q, dist='normal')
-            model_fit = model.fit(show_warning=False)
-            
-            # 预测下一个值
-            pred = model_fit.forecast(horizon=1)
-            predictions.append(pred.mean.values[-1][0])
-            
-            # 将实际值添加到当前数据中
-            current_data = np.append(current_data, test_data[i])
-        
-        predictions = np.array(predictions)
-        
-        # 计算指标（在标准化空间中计算）
-        mse = mean_squared_error(test_data, predictions)
-        rmse = np.sqrt(mse)
-        mae = mean_absolute_error(test_data, predictions)
-        r2 = r2_score(test_data, predictions)
-        
-        # 计算方向准确率
-        pred_direction = np.diff(predictions) > 0
-        actual_direction = np.diff(test_data) > 0
-        direction_accuracy = np.mean(pred_direction == actual_direction)
-        
-        metrics = {
-            'MSE': mse,
-            'RMSE': rmse,
-            'MAE': mae,
-            'R²': r2,
-            'Direction_Accuracy': direction_accuracy
-        }
-        
-        # 反标准化
-        n_features = X_test.shape[2]  # 特征数量
-        pred_full = np.zeros((len(predictions), n_features))
-        pred_full[:, 0] = predictions  # 假设第一列是目标变量
-        
-        actual_full = np.zeros((len(test_data), n_features))
-        actual_full[:, 0] = test_data
-        
-        # 反标准化
-        pred_original = self.scaler.inverse_transform(pred_full)
-        actual_original = self.scaler.inverse_transform(actual_full)
-        
-        predictions = pred_original[:, 0]
-        test_data = actual_original[:, 0]
-        
-        # 保存最终模型
-        self.models[model_name] = model_fit
-        self.histories[model_name] = {'metrics': metrics}
-        
-        return metrics, predictions, test_data
-    
     def predict_future_arma(self, model_name, last_data, days=30):
         """ARMA模型预测未来"""
         if model_name not in self.models:
@@ -727,15 +662,6 @@ class StockPredictor:
         model = self.models[model_name]
         predictions = model.forecast(steps=days)
         return predictions
-    
-    def predict_future_garch(self, model_name, last_data, days=30):
-        """GARCH模型预测未来"""
-        if model_name not in self.models:
-            raise ValueError(f"模型 '{model_name}' 未找到")
-        
-        model = self.models[model_name]
-        predictions = model.forecast(horizon=days)
-        return predictions.mean.values[-1]
     
     def load_model(self, model_name, save_dir='saved_models'):
         """加载模型"""
