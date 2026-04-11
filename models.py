@@ -586,13 +586,13 @@ class StockPredictor:
         
         print(f"模型 '{model_name}' 已保存到 {save_dir}")
     
-    def train_arma_model(self, model_name, X_train, y_train, X_test, y_test, p=1, d=0, q=1):
-        """训练ARMA模型（优化版）"""
+    def train_arima_model(self, model_name, X_train, y_train, X_test, y_test, p=1, d=0, q=1):
+        """训练ARIMA模型（优化版）"""
         # 将数据转换为一维数组
         train_data = y_train.cpu().numpy()
         test_data = y_test.cpu().numpy()
         
-        # 训练ARMA模型（使用更快的参数）
+        # 训练ARIMA模型（使用更快的参数）
         model = ARIMA(train_data, order=(p, d, q))
         model_fit = model.fit()
         
@@ -654,8 +654,8 @@ class StockPredictor:
         
         return metrics, predictions, test_data
     
-    def predict_future_arma(self, model_name, last_data, days=30):
-        """ARMA模型预测未来"""
+    def predict_future_arima(self, model_name, last_data, days=30):
+        """ARIMA模型预测未来"""
         if model_name not in self.models:
             raise ValueError(f"模型 '{model_name}' 未找到")
         

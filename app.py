@@ -9,7 +9,7 @@ from models import BiLSTMModel, TransformerModel, StockPredictor
 import io
 
 st.set_page_config(
-    page_title="股市预测模型对比 - BiLSTM vs Transformer vs ARMA",
+    page_title="股市预测模型对比 - BiLSTM vs Transformer vs ARIMA",
     page_icon="📈",
     layout="wide"
 )
@@ -46,7 +46,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-header">📊 股市预测模型对比分析</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">BiLSTM vs Transformer vs ARMA 模型性能比较</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">BiLSTM vs Transformer vs ARIMA 模型性能比较</div>', unsafe_allow_html=True)
 
 st.sidebar.header("📖 模型介绍")
 
@@ -116,7 +116,7 @@ if st.sidebar.button("🔍 查看模型原理", use_container_width=True):
     - ❌ 计算复杂度高
     
     ---
-    ### 📈 ARMA (自回归移动平均模型)
+    ### 📈 ARIMA (自回归综合移动平均模型)
     
     **核心思想**：
     - 结合**自回归(AR)**和**移动平均(MA)**两种模型
@@ -158,7 +158,7 @@ if st.sidebar.button("🔍 查看模型原理", use_container_width=True):
     ---
     ###  三大模型对比总结
     
-    | 特性 | BiLSTM | Transformer | ARMA |
+    | 特性 | BiLSTM | Transformer | ARIMA |
     |------|--------|-------------|------|
     | 模型类型 | 深度学习 | 深度学习 | 统计模型 |
     | 计算方式 | 串行 | 并行 | 解析解/迭代 |
@@ -207,7 +207,7 @@ use_sample = st.sidebar.checkbox("使用示例数据", value=False)
 st.sidebar.subheader("🧠 模型选择")
 use_bilstm = st.sidebar.checkbox("双向LSTM模型", value=True)
 use_transformer = st.sidebar.checkbox("Transformer模型", value=True)
-use_arma = st.sidebar.checkbox("ARMA模型", value=True)
+use_arma = st.sidebar.checkbox("ARIMA模型", value=True)
 
 if not use_bilstm and not use_transformer and not use_arma:
     st.sidebar.error("请至少选择一个模型")
@@ -310,7 +310,7 @@ if st.sidebar.checkbox("ℹ️ 编码器层数是什么？"):
     - 追求精度：3-6层
     """)
 
-st.sidebar.subheader("📈 ARMA参数")
+st.sidebar.subheader("📈 ARIMA参数")
 arma_p = st.sidebar.slider("AR阶数(p)", min_value=1, max_value=5, value=1)
 if st.sidebar.checkbox("ℹ️ AR阶数(p)是什么？"):
     st.sidebar.info("""
@@ -559,15 +559,15 @@ with main_container:
                         all_results['Transformer'] = predictor.evaluate_model('Transformer', X_test, y_test)
                         progress_bar.progress(int(100 * current_model / total_models))
                     
-                    # ARMA模型
+                    # ARIMA模型
                     if use_arma:
                         current_model += 1
-                        status_text.text(f"[{current_model}/{total_models}] 训练 ARMA 模型...")
-                        arma_metrics, arma_preds, actuals = predictor.train_arma_model(
-                            'ARMA', X_train, y_train, X_test, y_test,
+                        status_text.text(f"[{current_model}/{total_models}] 训练 ARIMA 模型...")
+                        arma_metrics, arma_preds, actuals = predictor.train_arima_model(
+                            'ARIMA', X_train, y_train, X_test, y_test,
                             p=arma_p, d=arma_d, q=arma_q
                         )
-                        all_results['ARMA'] = (arma_metrics, arma_preds, actuals)
+                        all_results['ARIMA'] = (arma_metrics, arma_preds, actuals)
                         progress_bar.progress(int(100 * current_model / total_models))
                     
                     progress_bar.progress(100)
@@ -595,7 +595,7 @@ with main_container:
                     cols = st.columns(min(len(all_results), 2))
                     for idx, (model_name, (metrics, preds, actuals)) in enumerate(all_results.items()):
                         with cols[idx % 2]:
-                            icon = {'BiLSTM': '🧠', 'Transformer': '🤖', 'ARMA': '📈'}.get(model_name, '📊')
+                            icon = {'BiLSTM': '🧠', 'Transformer': '🤖', 'ARIMA': '📈'}.get(model_name, '📊')
                             st.subheader(f"{icon} {model_name} 评估结果")
                             
                             for metric, value in metrics.items():
@@ -623,7 +623,7 @@ with main_container:
                         ))
                         
                         # 各模型预测值
-                        colors = {'BiLSTM': 'green', 'Transformer': 'blue', 'ARMA': 'orange'}
+                        colors = {'BiLSTM': 'green', 'Transformer': 'blue', 'ARIMA': 'orange'}
                         for model_name, (metrics, preds, _) in all_results.items():
                             fig.add_trace(go.Scatter(
                                 x=df['Date'].iloc[-len(preds):],
@@ -653,7 +653,7 @@ with main_container:
                         best_model = max(direction_accuracies, key=direction_accuracies.get)
                         best_acc = direction_accuracies[best_model]
                         
-                        icon = {'BiLSTM': '🧠', 'Transformer': '🤖', 'ARMA': '📈'}.get(best_model, '📊')
+                        icon = {'BiLSTM': '🧠', 'Transformer': '🤖', 'ARIMA': '📈'}.get(best_model, '📊')
                         st.success(f"{icon} **{best_model} 模型**表现最好！")
                         st.info(f"方向准确率: {best_acc:.2%}")
                         

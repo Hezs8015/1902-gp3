@@ -36,30 +36,31 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-header">📚 模型介绍与参考文献</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">ARMA · BiLSTM · Transformer</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">ARIMA · BiLSTM · Transformer</div>', unsafe_allow_html=True)
 
 st.markdown("""
 本项目使用 **BiLSTM** 和 **Transformer** 两种深度学习模型进行股票价格预测，
-并以传统统计模型 **ARMA** 作为基准对比。以下介绍各模型的原理及其在股票预测任务中的优劣势。
+并以传统统计模型 **ARIMA** 作为基准对比。以下介绍各模型的原理及其在股票预测任务中的优劣势。
 """)
 
 # ─────────────────────────────────────────────
-# 1. ARMA
+# 1. ARIMA
 # ─────────────────────────────────────────────
 st.markdown("---")
-st.header("📈 1. ARMA (Autoregressive Moving Average)")
+st.header("📈 1. ARIMA (Autoregressive Integrated Moving Average)")
 
 col1, col2 = st.columns([2, 1])
 
 with col1:
     st.markdown("""
-    **ARMA** 是由 Box & Jenkins（1970）提出的经典时间序列统计模型，由两部分组成：
+    **ARIMA** 是由 Box & Jenkins（1970）提出的经典时间序列统计模型，由三部分组成：
 
     - **AR（自回归）**：用过去若干期的值预测当前值，假设当前值是历史值的线性组合
+    - **I（积分）**：对非平稳序列进行差分，使其变为平稳序列
     - **MA（移动平均）**：用过去的预测误差修正当前预测，降低随机噪声的影响
 
-    ARMA(p, q) 中，p 表示自回归阶数，q 表示移动平均阶数。该模型假设时间序列是**平稳**的，
-    即均值和方差不随时间变化。
+    ARIMA(p, d, q) 中，p 表示自回归阶数，d 表示差分阶数，q 表示移动平均阶数。该模型通过差分处理非平稳序列，
+    使其变为平稳序列后进行建模。
     """)
 
 with col2:
@@ -74,8 +75,8 @@ with col2:
 st.markdown("""
 **在股票预测中的局限性**
 
-股票价格本质上是非平稳序列，波动性随时间变化，ARMA 无法捕捉价格的非线性规律和突发事件，
-预测精度有限。通常需要先对价格取对数差分（log return）使其平稳后才能使用。
+股票价格本质上是非平稳序列，ARIMA 通过差分处理可以改善这一问题，但仍无法捕捉价格的非线性规律和突发事件，
+预测精度有限。对于股票数据，通常需要选择合适的差分阶数来处理非平稳性。
 """)
 
 # ─────────────────────────────────────────────
@@ -164,7 +165,7 @@ st.markdown("---")
 st.header("📊 模型对比总结")
 
 st.markdown("""
-| 特性 | ARMA | BiLSTM | Transformer |
+| 特性 | ARIMA | BiLSTM | Transformer |
 |------|------|--------|-------------|
 | 模型类型 | 统计 | 深度学习 | 深度学习 |
 | 主要用途 | 价格预测 | 价格预测 | 价格预测 |
@@ -177,7 +178,7 @@ st.markdown("""
 """)
 
 st.markdown("""
-**总结**：ARMA 作为传统统计基准，优点是解释性强、数据需求低，
+**总结**：ARIMA 作为传统统计基准，优点是解释性强、数据需求低，
 但对股票价格的非线性特征建模能力有限。BiLSTM 和 Transformer 作为深度学习模型，
 能够自动学习复杂的非线性时序规律，在足够数据的支持下通常表现更优，
 但代价是更高的计算成本和更低的可解释性。
