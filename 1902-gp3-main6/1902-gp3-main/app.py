@@ -6,7 +6,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 from models import BiLSTMModel, TransformerModel, StockPredictor
-import scipy.stats as stats
 import io
 
 st.set_page_config(
@@ -356,7 +355,8 @@ if st.sidebar.checkbox("ℹ️ MA阶数(q)是什么？"):
     """)
 
 st.sidebar.subheader("⚡ 训练参数")
-epochs = st.sidebar.slider("训练轮数", min_value=10, max_value=200, value=50, step=10)
+
+epochs = st.sidebar.slider("训练轮数", min_value=10, max_value=200, value=15, step=5)
 if st.sidebar.checkbox("ℹ️ 训练轮数是什么？"):
     st.sidebar.info("""
     **训练轮数**：模型在训练数据上迭代的次数。
@@ -365,12 +365,10 @@ if st.sidebar.checkbox("ℹ️ 训练轮数是什么？"):
     - 轮数越多 → 模型学习越充分 → 但可能过拟合
     - 轮数越少 → 训练更快 → 但可能欠拟合
     
-    💡 建议：
-    - 简单模型：30-50轮
-    - 复杂模型：50-100轮
+    💡 建议：15-20轮（已优化为快速训练）
     """)
 
-batch_size = st.sidebar.slider("批次大小", min_value=8, max_value=128, value=32, step=8)
+batch_size = st.sidebar.slider("批次大小", min_value=8, max_value=128, value=64, step=8)
 if st.sidebar.checkbox("ℹ️ 批次大小是什么？"):
     st.sidebar.info("""
     **批次大小**：每次训练时处理的数据量。
@@ -379,10 +377,7 @@ if st.sidebar.checkbox("ℹ️ 批次大小是什么？"):
     - 批次越大 → 训练速度越快 → 内存需求越大
     - 批次越小 → 内存需求越小 → 训练速度较慢
     
-    💡 建议：
-    - 小内存：8-16
-    - 一般内存：32-64
-    - 大内存：64-128
+    💡 建议：64-128（已优化为快速训练）
     """)
 
 learning_rate = st.sidebar.slider("学习率", min_value=0.0001, max_value=0.01, value=0.001, step=0.0001)
@@ -398,11 +393,6 @@ if st.sidebar.checkbox("ℹ️ 学习率是什么？"):
     - 初始：0.001
     - 微调：0.0001-0.001
     """)
-
-# 训练加速选项（内部优化）
-use_amp = True  # 启用混合精度训练
-grad_accumulation = 1  # 梯度累积步数
-fast_mode = True  # 启用快速训练模式
 
 # 主内容区域
 main_container = st.container()
@@ -532,36 +522,21 @@ with main_container:
                     if use_bilstm:
                         current_model += 1
                         status_text.text(f"[{current_model}/{total_models}] 训练 BiLSTM 模型...")
-                        # 快速模式下使用简化参数
-                        if fast_mode:
-                            bilstm_model = BiLSTMModel(
-                                input_size=input_size,
-                                hidden_size=64,  # 适当减少隐藏层大小
-                                num_layers=1,     # 减少层数
-                                output_size=1
-                            ).to(device)
-                            
-                            bilstm_history = predictor.train_model(
-                                'BiLSTM', bilstm_model, X_train, y_train, X_test, y_test,
-                                epochs=15,  # 适当增加训练轮数
-                                batch_size=64,  # 适当调整批次大小
-                                lr=learning_rate,
-                                use_amp=use_amp, 
-                                grad_accumulation_steps=grad_accumulation
-                            )
-                        else:
-                            bilstm_model = BiLSTMModel(
-                                input_size=input_size,
-                                hidden_size=bilstm_hidden,
-                                num_layers=bilstm_layers,
-                                output_size=1
-                            ).to(device)
-                            
-                            bilstm_history = predictor.train_model(
-                                'BiLSTM', bilstm_model, X_train, y_train, X_test, y_test,
-                                epochs=epochs, batch_size=batch_size, lr=learning_rate,
-                                use_amp=use_amp, grad_accumulation_steps=grad_accumulation
-                            )
+                        
+                        # 使用优化的轻量模型
+                        bilstm_model = BiLSTMModel(
+                            input_size=input_size,
+                            hidden_size=64,  # 减少隐藏层大小
+                            num_layers=1,     # 减少层数
+                            output_size=1
+                        ).to(device)
+                        
+                        bilstm_history = predictor.train_model(
+                            'BiLSTM', bilstm_model, X_train, y_train, X_test, y_test,
+                            epochs=epochs, batch_size=batch_size, lr=learning_rate,
+                            use_amp=True,  # 启用混合精度训练
+                            grad_accumulation_steps=1  # 梯度累积步数
+                        )
                         all_results['BiLSTM'] = predictor.evaluate_model('BiLSTM', X_test, y_test)
                         progress_bar.progress(int(100 * current_model / total_models))
                     
@@ -569,38 +544,22 @@ with main_container:
                     if use_transformer:
                         current_model += 1
                         status_text.text(f"[{current_model}/{total_models}] 训练 Transformer 模型...")
-                        # 快速模式下使用简化参数
-                        if fast_mode:
-                            transformer_model = TransformerModel(
-                                input_size=input_size,
-                                d_model=32,  # 适当减少模型维度
-                                nhead=2,     # 适当减少注意力头数
-                                num_layers=1,  # 减少层数
-                                output_size=1
-                            ).to(device)
-                            
-                            trans_history = predictor.train_model(
-                                'Transformer', transformer_model, X_train, y_train, X_test, y_test,
-                                epochs=15,  # 适当增加训练轮数
-                                batch_size=64,  # 适当调整批次大小
-                                lr=learning_rate,
-                                use_amp=use_amp, 
-                                grad_accumulation_steps=grad_accumulation
-                            )
-                        else:
-                            transformer_model = TransformerModel(
-                                input_size=input_size,
-                                d_model=trans_d_model,
-                                nhead=trans_heads,
-                                num_layers=trans_layers,
-                                output_size=1
-                            ).to(device)
-                            
-                            trans_history = predictor.train_model(
-                                'Transformer', transformer_model, X_train, y_train, X_test, y_test,
-                                epochs=epochs, batch_size=batch_size, lr=learning_rate,
-                                use_amp=use_amp, grad_accumulation_steps=grad_accumulation
-                            )
+                        
+                        # 使用优化的轻量模型
+                        transformer_model = TransformerModel(
+                            input_size=input_size,
+                            d_model=32,  # 减少模型维度
+                            nhead=2,     # 减少注意力头数
+                            num_layers=1, # 减少层数
+                            output_size=1
+                        ).to(device)
+                        
+                        trans_history = predictor.train_model(
+                            'Transformer', transformer_model, X_train, y_train, X_test, y_test,
+                            epochs=epochs, batch_size=batch_size, lr=learning_rate,
+                            use_amp=True,  # 启用混合精度训练
+                            grad_accumulation_steps=1  # 梯度累积步数
+                        )
                         all_results['Transformer'] = predictor.evaluate_model('Transformer', X_test, y_test)
                         progress_bar.progress(int(100 * current_model / total_models))
                     
@@ -686,65 +645,6 @@ with main_container:
                     )
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # 残差分析与正态检验
-                    st.subheader("📊 残差分析")
-                    for model_name, (metrics, preds, actuals) in all_results.items():
-                        residual = actuals - preds
-                        st.markdown(f"#### {model_name}")
-                        c1, c2 = st.columns(2)
-
-                        with c1:
-                            # 残差时序图
-                            fig_res = go.Figure()
-                            fig_res.add_trace(go.Scatter(y=residual, mode="lines", name="残差"))
-                            fig_res.add_hline(y=0, line_dash="dash", line_color="red")
-                            fig_res.update_layout(title="残差时序图", height=300, template="plotly_dark")
-                            st.plotly_chart(fig_res, use_container_width=True)
-
-                        with c2:
-                            # 残差直方图+KDE图
-                            fig_hist = go.Figure()
-                            # 绘制残差直方图
-                            fig_hist.add_trace(go.Histogram(x=residual, nbinsx=30, name="残差分布", histnorm="probability density"))
-                            # 拟合正态分布曲线
-                            mu, std = stats.norm.fit(residual)
-                            x_norm = np.linspace(residual.min(), residual.max(), 100)
-                            y_norm = stats.norm.pdf(x_norm, mu, std)
-                            fig_hist.add_trace(go.Scatter(x=x_norm, y=y_norm, mode="lines", name="正态拟合曲线", line=dict(color="red", dash="dash")))
-                            
-                            fig_hist.update_layout(title="残差分布与正态拟合", xaxis_title="残差值", yaxis_title="概率密度", height=300, template="plotly_dark")
-                            st.plotly_chart(fig_hist, use_container_width=True)
-
-                    # 训练损失 vs 验证损失曲线
-                    st.subheader("训练与验证损失曲线")
-                    fig_loss = go.Figure()
-                    if 'bilstm_history' in locals():
-                        fig_loss.add_trace(go.Scatter(y=bilstm_history['train_loss'], name="BiLSTM 训练损失"))
-                        fig_loss.add_trace(go.Scatter(y=bilstm_history['val_loss'], name="BiLSTM 验证损失", line_dash="dash"))
-                    if 'trans_history' in locals():
-                        fig_loss.add_trace(go.Scatter(y=trans_history['train_loss'], name="Transformer 训练损失"))
-                        fig_loss.add_trace(go.Scatter(y=trans_history['val_loss'], name="Transformer 验证损失", line_dash="dash"))
-                    # 添加ARIMA模型的损失曲线
-                    # 调试信息
-                    # st.write(f"Predictor histories keys: {list(predictor.histories.keys())}")
-                    if 'ARIMA' in predictor.histories:
-                        arima_history = predictor.histories['ARIMA']
-                        # st.write(f"ARIMA history keys: {list(arima_history.keys())}")
-                        if 'train_loss' in arima_history and 'val_loss' in arima_history:
-                            # st.write(f"ARIMA train loss length: {len(arima_history['train_loss'])}")
-                            # st.write(f"ARIMA val loss length: {len(arima_history['val_loss'])}")
-                            fig_loss.add_trace(go.Scatter(y=arima_history['train_loss'], name="ARIMA 训练损失"))
-                            fig_loss.add_trace(go.Scatter(y=arima_history['val_loss'], name="ARIMA 验证损失", line_dash="dash"))
-                    fig_loss.update_layout(
-                        title="训练与验证损失曲线", 
-                        xaxis_title="Epoch", 
-                        yaxis_title="Loss", 
-                        height=400, 
-                        template="plotly_dark",
-                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5)
-                    )
-                    st.plotly_chart(fig_loss, use_container_width=True)
-                    
                     # 模型推荐
                     st.header("🏆 模型推荐")
                     
@@ -767,6 +667,86 @@ with main_container:
                         for rank, (model, acc) in enumerate(sorted_models, 1):
                             medal = {1: '🥇', 2: '🥈', 3: '🥉'}.get(rank, f'{rank}.')
                             st.write(f"{medal} {model}: {acc:.2%}")
+                    
+                    # 训练损失曲线
+                    st.header("📊 训练损失曲线")
+                    if 'bilstm_history' in locals() or 'trans_history' in locals():
+                        fig_loss = go.Figure()
+                        
+                        if 'bilstm_history' in locals():
+                            fig_loss.add_trace(go.Scatter(
+                                y=bilstm_history['train_loss'],
+                                name="BiLSTM 训练损失",
+                                line=dict(color='green', width=2)
+                            ))
+                            fig_loss.add_trace(go.Scatter(
+                                y=bilstm_history['val_loss'],
+                                name="BiLSTM 验证损失",
+                                line=dict(color='green', width=2, dash='dash')
+                            ))
+                        
+                        if 'trans_history' in locals():
+                            fig_loss.add_trace(go.Scatter(
+                                y=trans_history['train_loss'],
+                                name="Transformer 训练损失",
+                                line=dict(color='blue', width=2)
+                            ))
+                            fig_loss.add_trace(go.Scatter(
+                                y=trans_history['val_loss'],
+                                name="Transformer 验证损失",
+                                line=dict(color='blue', width=2, dash='dash')
+                            ))
+                        
+                        fig_loss.update_layout(
+                            title="训练与验证损失曲线",
+                            xaxis_title="Epoch",
+                            yaxis_title="Loss",
+                            template='plotly_dark',
+                            height=400
+                        )
+                        st.plotly_chart(fig_loss, use_container_width=True)
+                    
+                    # 残差分析
+                    st.header("📊 残差分析")
+                    if all_results:
+                        for model_name, (metrics, preds, actuals) in all_results.items():
+                            residual = np.array(actuals) - np.array(preds)
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                # 残差时序图
+                                fig_res = go.Figure()
+                                fig_res.add_trace(go.Scatter(
+                                    y=residual,
+                                    mode="lines",
+                                    name="残差"
+                                ))
+                                fig_res.add_hline(y=0, line_dash="dash", line_color="red")
+                                fig_res.update_layout(
+                                    title=f"{model_name} 残差时序图",
+                                    yaxis_title="残差值",
+                                    template='plotly_dark',
+                                    height=300
+                                )
+                                st.plotly_chart(fig_res, use_container_width=True)
+                            
+                            with col2:
+                                # 残差直方图
+                                fig_hist = go.Figure()
+                                fig_hist.add_trace(go.Histogram(
+                                    x=residual,
+                                    nbinsx=30,
+                                    name="残差分布",
+                                    histnorm="probability density"
+                                ))
+                                fig_hist.update_layout(
+                                    title=f"{model_name} 残差分布",
+                                    xaxis_title="残差值",
+                                    yaxis_title="概率密度",
+                                    template='plotly_dark',
+                                    height=300
+                                )
+                                st.plotly_chart(fig_hist, use_container_width=True)
                     
                     # 保存模型
                     st.header("💾 模型保存")
